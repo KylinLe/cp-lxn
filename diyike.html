@@ -7,58 +7,94 @@
 <style>
 /* ============================================================
    普陀中学摄影社 · 第一课课件
-   灰色外框内嵌圆角矩形页面；切页按钮位于外框左下角
-   外观沿用官网：黑白 / 细线 / 字距 / 相机标
+   页面铺满视口、无外框；点击页面翻页，底部中央设「上一页」
+   黑底白字高对比 / 细线 / 字距 / 相机标 / 暗色艺术背景
    舞台固定 1600×900 等比缩放，适配任意横屏
    ============================================================ */
 
 :root{
-  --ink:#0f0f0f;
-  --paper:#ffffff;
-  --muted:#6e6e73;
-  --faint:#8a8a90;
-  --line:#e3e3e5;
-  --frame:#c9c9ce;
+  --ink:#ffffff;
+  --paper:#0d0d0f;
+  --muted:#b5b5bc;
+  --faint:#8b8b91;
+  --line:#2c2c30;
   --ease:cubic-bezier(.22,.61,.24,1);
-  --r:22px;
 }
 
 *,*::before,*::after{ margin:0; padding:0; box-sizing:border-box; }
 
 html,body{
   height:100%; overflow:hidden;
-  background:var(--frame);
+  background:var(--paper);
+  color:var(--ink);
+  color:var(--ink);
   font-family:-apple-system, BlinkMacSystemFont, "SF Pro Display", "PingFang SC",
               "Helvetica Neue", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
   -webkit-font-smoothing:antialiased;
   text-rendering:optimizeLegibility;
 }
 
-/* ---------- 舞台：外框中的圆角矩形 ---------- */
+/* ---------- 背景层：暗色艺术背景 + 切页光效 ---------- */
+/* 斜向光束（呼应「认识光」）+ 柔光晕 + 镜头光圈环 + 胶片颗粒
+   全部以黑色为主、透明度极低，不干扰白字阅读 */
+#bg{
+  position:fixed; inset:0; z-index:0; pointer-events:none;
+  background-color:var(--paper);
+  background-image:
+    /* 光束一：自左上斜入 */
+    linear-gradient(115deg, rgba(255,255,255,.07) 0%, rgba(255,255,255,.02) 16%, transparent 36%),
+    /* 光束二：自右下斜入，更淡 */
+    linear-gradient(295deg, rgba(255,255,255,.05) 0%, transparent 28%),
+    /* 两组柔光晕 */
+    radial-gradient(1000px 700px at 20% 14%, rgba(255,255,255,.05), transparent 62%),
+    radial-gradient(900px 650px at 86% 90%, rgba(255,255,255,.03), transparent 62%),
+    /* 右上角镜头光圈环 */
+    radial-gradient(circle at 85% 22%, transparent 0 190px, rgba(255,255,255,.045) 190px 191.5px,
+      transparent 191.5px 235px, rgba(255,255,255,.03) 235px 236.5px, transparent 236.5px),
+    /* 左下角小光圈环 */
+    radial-gradient(circle at 8% 80%, transparent 0 90px, rgba(255,255,255,.035) 90px 91.5px,
+      transparent 91.5px 120px, rgba(255,255,255,.025) 120px 121.5px, transparent 121.5px),
+    /* 胶片颗粒 */
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='0.045'/%3E%3C/svg%3E");
+}
+/* ---------- 闪光灯转场：封面 → 第二页 ---------- */
+#flash{
+  position:fixed; inset:0; z-index:100; pointer-events:none;
+  background:#fff; opacity:0;
+}
+#flash.on{ animation:flashPop 1s cubic-bezier(.22,.61,.24,1); }
+@keyframes flashPop{
+  0%{ opacity:0; }
+  12%{ opacity:1; }
+  100%{ opacity:0; }
+}
+
+/* ---------- 舞台：铺满整个视口 ---------- */
 #stage{
   position:absolute; left:50%; top:calc(50% + var(--ty,0px));
   width:1600px; height:900px;
   transform-origin:center center;
   transform:translate(-50%,-50%) scale(var(--k,1));
-  background:var(--paper);
-  border-radius:var(--r);
-  box-shadow:0 26px 72px rgba(0,0,0,.22), 0 3px 12px rgba(0,0,0,.10);
   overflow:hidden;
 }
 
 /* ---------- 页面 ---------- */
 .slide{
   position:absolute; inset:0;
-  background:var(--paper);
   opacity:0; z-index:1; pointer-events:none;
+  /* 离场淡出：与新页入场形成柔和交叉过渡 */
+  transition:opacity .8s var(--ease);
 }
+/* 放大动效翻页时来源页立即隐去，避免两个标题重影 */
+.slide.no-fade{ transition:none; }
 .slide.is-active{
   opacity:1; z-index:2; pointer-events:auto;
-  animation:slIn .46s var(--ease) both;
+  animation:slIn 1.6s cubic-bezier(.16,1,.3,1) both;
 }
+/* 入场：轻微推近 + 柔焦变清晰，像镜头对焦 */
 @keyframes slIn{
-  from{ opacity:0; transform:translate3d(var(--dx,14px),0,0) scale(.996); }
-  to  { opacity:1; transform:none; }
+  from{ opacity:0; transform:translate3d(var(--dx,0px),0,0) scale(1.024); filter:blur(12px); }
+  to  { opacity:1; transform:none; filter:blur(0); }
 }
 /* 放大动效页：父级只做淡入，不做缩放位移 —— 否则会污染标题的落点计算 */
 .slide.is-active.morphing{ animation-name:slFade; }
@@ -68,13 +104,14 @@ html,body{
 }
 
 .slide.is-active .st{
-  animation:rise .62s var(--ease) both;
-  animation-delay:calc(80ms + min(var(--i,0) * 42ms, 300ms));
-  will-change:transform,opacity;
+  animation:rise 1.5s cubic-bezier(.16,1,.3,1) both;
+  animation-delay:calc(260ms + min(var(--i,0) * 120ms, 680ms));
+  will-change:transform,opacity,filter;
 }
+/* 内容入场：上浮更明显 + 轻微放大 + 模糊变清晰 */
 @keyframes rise{
-  from{ opacity:0; transform:translate3d(0,12px,0); }
-  to  { opacity:1; transform:none; }
+  from{ opacity:0; transform:translate3d(0,26px,0) scale(.982); filter:blur(7px); }
+  to  { opacity:1; transform:none; filter:blur(0); }
 }
 
 /* 放大动效进行中：目标标题及其祖先不参与入场动画，避免位移叠加 */
@@ -83,7 +120,7 @@ html,body{
 .slide.is-active.morphing .st.morph-wait{ animation:none; opacity:0; }
 
 /* ---------- 顶部进度 ---------- */
-.prog{ position:absolute; top:0; left:calc(var(--r) + 2px); right:calc(var(--r) + 2px);
+.prog{ position:absolute; top:0; left:0; right:0;
        height:2px; z-index:20; pointer-events:none; }
 .prog i{
   display:block; height:100%; width:0;
@@ -91,31 +128,14 @@ html,body{
   transition:width .45s var(--ease);
 }
 
-/* ---------- 页眉 ---------- */
-.strip{
-  position:absolute; top:40px; left:92px; right:92px;
-  display:flex; justify-content:space-between; align-items:baseline;
-  font-size:19px; letter-spacing:.26em; text-transform:uppercase;
-  color:var(--faint); font-weight:500;
-}
-.strip .r{ font-variant-numeric:tabular-nums; }
-
 /* ---------- 正文区 ---------- */
 .body{
   position:absolute; inset:88px 92px 104px;
   display:flex; flex-direction:column;
 }
 
-.hd{ display:grid; grid-template-columns:82px minmax(0,1fr); gap:28px; align-items:start; }
-.hd .num{
-  font-size:20px; letter-spacing:.18em; color:var(--faint);
-  font-weight:600; padding-top:.95em; font-variant-numeric:tabular-nums;
-}
+.hd{ display:block; }
 .hd h2{ font-size:70px; line-height:1.06; letter-spacing:-.03em; font-weight:600; }
-.hd .en{
-  margin-top:15px; font-size:20px; letter-spacing:.3em;
-  text-transform:uppercase; color:var(--faint); font-weight:500;
-}
 
 .main{ margin-top:44px; flex:1; display:flex; flex-direction:column; min-height:0; }
 
@@ -159,7 +179,6 @@ html,body{
 .c2mark{ width:150px; margin:0 auto; color:var(--ink); }
 .c2mark svg{ width:100%; height:auto; display:block; }
 .c2name{ margin-top:26px; font-size:26px; font-weight:600; letter-spacing:.24em; }
-.c2en{ margin-top:11px; font-size:20px; letter-spacing:.3em; text-transform:uppercase; color:var(--faint); font-weight:500; }
 .c2title{
   font-size:126px; line-height:1.02; letter-spacing:-.045em; font-weight:600;
   margin-left:-.02em;
@@ -179,7 +198,6 @@ html,body{
 .ccard{ padding-top:22px; display:flex; flex-direction:column; }
 .ccard .ck{ font-size:20px; letter-spacing:.18em; color:var(--faint); font-weight:600; }
 .ccard h3{ font-size:64px; font-weight:600; letter-spacing:-.03em; margin-top:12px; }
-.ccard .cen{ margin-top:10px; font-size:20px; letter-spacing:.26em; text-transform:uppercase; color:var(--faint); font-weight:500; }
 .ccard p{ margin-top:18px; font-size:22px; line-height:1.6; color:var(--muted); }
 .ccard .clist{ margin-top:16px; }
 .ccard .clist div{
@@ -203,8 +221,8 @@ html,body{
              transform .24s var(--ease), box-shadow .24s var(--ease);
 }
 .sbtn:hover{
-  background:var(--ink); color:#fff; transform:translateY(-2px);
-  box-shadow:0 8px 20px rgba(0,0,0,.16);
+  background:var(--ink); color:var(--paper); transform:translateY(-2px);
+  box-shadow:0 8px 24px rgba(255,255,255,.14);
 }
 .sbtn:active{ transform:translateY(0); }
 .sbtn .arr{ display:inline-block; transition:transform .24s var(--ease); }
@@ -220,18 +238,13 @@ html,body{
 .hero-name{
   font-size:150px; line-height:1.06; letter-spacing:-.03em; font-weight:600;
 }
-.hero-tag{
-  margin-top:28px; font-size:24px; letter-spacing:.3em; text-transform:uppercase;
-  color:var(--faint); font-weight:500;
-}
 .hero .sbtn{ margin-top:44px; align-self:flex-start; }
 
 /* ============================================================
    03 / 04 课程详情 —— 整页大字
    ============================================================ */
 .detail{ display:flex; flex-direction:column; height:100%; }
-.dnum{ font-size:20px; letter-spacing:.18em; color:var(--faint); font-weight:600; }
-.detail h2{ font-size:140px; line-height:1.02; letter-spacing:-.045em; font-weight:600; margin-top:16px; }
+.detail h2{ font-size:140px; line-height:1.02; letter-spacing:-.045em; font-weight:600; }
 .dsub{
   margin-top:32px; font-size:44px; line-height:1.5; letter-spacing:-.015em;
   font-weight:600; color:var(--ink); max-width:24em;
@@ -246,53 +259,40 @@ html,body{
   border:1px solid var(--line); border-radius:999px; color:var(--ink);
 }
 
-/* ---------- 反白页 ---------- */
-.slide.dark{ background:var(--ink); color:#fff; }
-.slide.dark .strip{ color:#8b8b91; }
-.slide.dark .hd .num{ color:#8b8b91; }
-.slide.dark .hd .en{ color:#8b8b91; }
-.slide.dark .say{ color:#fff; }
-.slide.dark .say em{ color:#91919a; }
+/* ---------- 底部「上一页」：融入版式的轻量按钮 ---------- */
+.backbtn{
+  position:absolute; bottom:14px; left:50%; transform:translateX(-50%);
+  z-index:30;
+  display:inline-flex; align-items:center; gap:10px;
+  padding:7px 18px;
+  font-size:16px; font-weight:500; letter-spacing:.18em;
+  color:var(--muted);
+  background:transparent;
+  border:1px solid var(--line); border-radius:999px;
+  -webkit-appearance:none; appearance:none; cursor:pointer;
+  transition:color .22s var(--ease), border-color .22s var(--ease),
+             opacity .3s var(--ease), transform .22s var(--ease);
+}
+.backbtn:hover{
+  color:var(--ink); border-color:var(--ink);
+  transform:translateX(-50%) translateY(-1px);
+}
+.backbtn .barr{ display:inline-block; font-size:15px; }
+.backbtn.hide{ opacity:0; pointer-events:none; }
 
-/* ---------- 工具条：外框左下角，三枚分离的扁圆角矩形 ---------- */
-.bar{
-  position:fixed; left:64px; bottom:8px; z-index:80;
-  display:flex; align-items:center; gap:10px;
+/* 封面底部「全屏」：与「上一页」同款，随封面内容排列 */
+.fsbtn{
+  display:inline-flex; align-items:center; gap:10px;
+  padding:7px 18px;
+  font-size:16px; font-weight:500; letter-spacing:.18em;
+  color:var(--muted);
+  background:transparent;
+  border:1px solid var(--line); border-radius:999px;
+  -webkit-appearance:none; appearance:none; cursor:pointer;
+  transition:color .22s var(--ease), border-color .22s var(--ease), transform .22s var(--ease);
 }
-.bar button{
-  -webkit-appearance:none; appearance:none;
-  width:58px; height:36px; border-radius:10px;
-  background:rgba(255,255,255,.94);
-  border:1px solid rgba(0,0,0,.09);
-  box-shadow:0 4px 14px rgba(0,0,0,.13);
-  display:grid; place-items:center; color:var(--ink); cursor:pointer;
-  transition:transform .22s var(--ease), box-shadow .22s var(--ease),
-             background .22s var(--ease), opacity .22s var(--ease);
-}
-.bar button:hover{ background:#fff; transform:translateY(-2px); box-shadow:0 8px 20px rgba(0,0,0,.17); }
-.bar button:active{ transform:translateY(0); }
-.bar button:disabled{ opacity:.3; cursor:default; transform:none; box-shadow:0 4px 14px rgba(0,0,0,.10); }
-.bar svg{ width:20px; height:20px; display:block; }
-.count{
-  display:flex; align-items:baseline; gap:5px;
-  font-size:18px; letter-spacing:.16em; color:rgba(26,26,28,.58);
-  font-variant-numeric:tabular-nums; user-select:none; padding-left:6px;
-}
-.count i{ font-style:normal; opacity:.45; }
-.count span{ display:inline-block; }
-.count span.roll{ animation:roll .34s var(--ease); }
-@keyframes roll{
-  from{ opacity:0; transform:translate3d(0,7px,0); }
-  to  { opacity:1; transform:none; }
-}
-
-.hint{
-  position:fixed; left:64px; bottom:19px; z-index:79;
-  font-size:17px; letter-spacing:.14em; color:rgba(28,28,30,.48);
-  pointer-events:none; transition:opacity .5s var(--ease);
-  text-transform:uppercase;
-}
-.hint.hide{ opacity:0; }
+.fsbtn:hover{ color:var(--ink); border-color:var(--ink); transform:translateY(-1px); }
+.fsbtn svg{ width:15px; height:15px; display:block; }
 
 @media (prefers-reduced-motion: reduce){
   *{ animation:none !important; transition:none !important; }
@@ -314,6 +314,10 @@ html,body{
   </g>
 </defs></svg>
 
+<div id="bg" aria-hidden="true"></div>
+
+<div id="flash" aria-hidden="true"></div>
+
 <div id="stage">
 
   <div class="prog"><i id="prog"></i></div>
@@ -327,29 +331,30 @@ html,body{
                stroke-linecap="round" stroke-linejoin="round"><use href="#camMark"/></svg>
         </div>
         <div class="c2name">普陀中学摄影社</div>
-        <div class="c2en">Photography Club of Putuo High School</div>
       </div>
 
-      <div class="c2title st" style="--i:1">欢迎加入摄影社</div>
+      <div class="c2title st" style="--i:1">课程介绍</div>
 
       <div class="c2bot st" style="--i:2">
-        <span><b>第一课 · 认识光</b></span>
-        <span class="sep"></span>
         <span>Kylin Le 主讲</span>
+        <span class="sep"></span>
+        <button class="fsbtn" id="fsbtn" aria-label="全屏">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+               stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 9 V4 H9"/><path d="M20 9 V4 H15"/>
+            <path d="M4 15 V20 H9"/><path d="M20 15 V20 H15"/>
+          </svg>
+          全屏
+        </button>
       </div>
     </div>
   </section>
 
   <!-- ========== 02 课程介绍 ========== -->
   <section class="slide">
-    <div class="strip"><span>普陀中学摄影社 · 第一课</span><span class="r">02 / 06</span></div>
     <div class="body">
       <div class="hd st" style="--i:0">
-        <div class="num">02</div>
-        <div>
-          <h2>课程介绍</h2>
-          <div class="en">Courses</div>
-        </div>
+        <h2>课程介绍</h2>
       </div>
       <div class="main">
         <p class="say st" style="--i:1">两门课。<em>一门讲清楚，一门练出来。</em></p>
@@ -357,7 +362,6 @@ html,body{
           <div class="ccard st" style="--i:2">
             <div class="ck">A</div>
             <h3 data-morph="basic">基础课</h3>
-            <div class="cen">Foundation</div>
             <p>偏向理论 · 软硬件操作与概念学习</p>
             <div class="clist">
               <div>相机按键、菜单、存储</div>
@@ -369,7 +373,6 @@ html,body{
           <div class="ccard st" style="--i:3">
             <div class="ck">B</div>
             <h3 data-morph="advanced">提升课</h3>
-            <div class="cen">Advanced</div>
             <p>偏向实践 · 剪辑思路与作品打磨</p>
             <div class="clist">
               <div>素材整理与取舍</div>
@@ -385,10 +388,8 @@ html,body{
 
   <!-- ========== 03 基础课（由第 02 页的基础课标题放大而来） ========== -->
   <section class="slide">
-    <div class="strip"><span>普陀中学摄影社 · 第一课</span><span class="r">03 / 06</span></div>
     <div class="body">
       <div class="detail">
-        <div class="dnum st" style="--i:0">03</div>
         <h2 class="st" style="--i:1" data-morph="basic">基础课</h2>
         <div class="dsub st" style="--i:2">偏向理论，如软硬件操作和概念学习……</div>
         <div class="dmid st" style="--i:3">
@@ -418,10 +419,8 @@ html,body{
 
   <!-- ========== 04 提升课 ========== -->
   <section class="slide">
-    <div class="strip"><span>普陀中学摄影社 · 第一课</span><span class="r">04 / 06</span></div>
     <div class="body">
       <div class="detail">
-        <div class="dnum st" style="--i:0">04</div>
         <h2 class="st" style="--i:1" data-morph="advanced">提升课</h2>
         <div class="dsub st" style="--i:2">偏向实践，如剪辑思路……</div>
         <div class="dmid st" style="--i:3">
@@ -451,14 +450,9 @@ html,body{
 
   <!-- ========== 05 摄影社官网与普中摄影社APP ========== -->
   <section class="slide">
-    <div class="strip"><span>普陀中学摄影社 · 第一课</span><span class="r">05 / 06</span></div>
     <div class="body">
       <div class="hd st" style="--i:0">
-        <div class="num">05</div>
-        <div>
-          <h2>摄影社官网与普中摄影社APP</h2>
-          <div class="en">Website &amp; App</div>
-        </div>
+        <h2>摄影社官网与普中摄影社APP</h2>
       </div>
       <div class="main">
         <p class="say st" style="--i:1">一个网站。<em>两种打开方式。</em></p>
@@ -466,7 +460,6 @@ html,body{
           <div class="ccard st" style="--i:2">
             <div class="ck">01</div>
             <h3>摄影社官网</h3>
-            <div class="cen">Website</div>
             <p>活动，课程表，人员安排，拍摄计划，优秀作品展示都可以在这里看到。</p>
             <div class="cfoot">
               <a class="sbtn" href="https://kylinle.github.io/pcpths" target="_blank" rel="noopener">进入官网 <span class="arr">→</span></a>
@@ -475,7 +468,6 @@ html,body{
           <div class="ccard st" style="--i:3">
             <div class="ck">02</div>
             <h3>普中摄影社APP</h3>
-            <div class="cen">App</div>
             <p>网站上有的，这里都有。</p>
             <div class="cfoot">
               <a class="sbtn" href="https://kylinle.github.io/pcpths/#app" target="_blank" rel="noopener">打开 APP <span class="arr">→</span></a>
@@ -488,83 +480,44 @@ html,body{
 
   <!-- ========== 06 认识身边的摄影大师 ========== -->
   <section class="slide">
-    <div class="strip"><span>普陀中学摄影社 · 第一课</span><span class="r">06 / 06</span></div>
     <div class="body">
       <div class="hd st" style="--i:0">
-        <div class="num">06</div>
-        <div>
-          <h2>认识身边的摄影大师</h2>
-          <div class="en">Masters Around Us</div>
-        </div>
+        <h2>认识身边的摄影大师</h2>
       </div>
       <div class="main">
         <div class="hero st" style="--i:1">
           <div class="hero-name">Feeling_菲林</div>
-          <div class="hero-tag">Photographer</div>
           <a class="sbtn" href="https://space.bilibili.com/1282396962?spm_id_from=333.337.0.0" target="_blank" rel="noopener">打开主页 <span class="arr">→</span></a>
         </div>
       </div>
     </div>
   </section>
 
-</div>
+  <button class="backbtn" id="backbtn" aria-label="上一页"><span class="barr">←</span>上一页</button>
 
-<!-- ========== 提示 ========== -->
-<div class="hint" id="hint">← → 翻页 · F 全屏</div>
-
-<!-- ========== 工具条：外框左下角 ========== -->
-<div class="bar" id="bar">
-  <button id="prev" aria-label="上一页" title="上一页 (←)">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
-         stroke-linecap="round" stroke-linejoin="round"><path d="M15 5 L8 12 L15 19"/></svg>
-  </button>
-  <button id="next" aria-label="下一页" title="下一页 (→)">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
-         stroke-linecap="round" stroke-linejoin="round"><path d="M9 5 L16 12 L9 19"/></svg>
-  </button>
-  <button id="fs" aria-label="全屏" title="全屏 (F)">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
-         stroke-linecap="round" stroke-linejoin="round">
-      <path d="M4 9 V4 H9"/><path d="M20 9 V4 H15"/>
-      <path d="M4 15 V20 H9"/><path d="M20 15 V20 H15"/>
-    </svg>
-  </button>
-  <div class="count"><span id="cur">01</span><i>/</i><span id="tot">06</span></div>
 </div>
 
 <script>
 (function () {
   'use strict';
 
-  var stage  = document.getElementById('stage');
-  var bar    = document.getElementById('bar');
-  var hint   = document.getElementById('hint');
-  var slides = Array.prototype.slice.call(document.querySelectorAll('.slide'));
-  var prog   = document.getElementById('prog');
-  var curEl  = document.getElementById('cur');
-  var totEl  = document.getElementById('tot');
-  var prevBtn= document.getElementById('prev');
-  var nextBtn= document.getElementById('next');
-  var fsBtn  = document.getElementById('fs');
+  var stage   = document.getElementById('stage');
+  var flashEl = document.getElementById('flash');
+  var slides  = Array.prototype.slice.call(document.querySelectorAll('.slide'));
+  var prog    = document.getElementById('prog');
+  var backBtn = document.getElementById('backbtn');
+  var fsBtnEl = document.getElementById('fsbtn');
 
   var SW = 1600, SH = 900;
-  var MX = 16, MT = 10, MB = 52;
   var K = 1, cur = 0;
 
-  /* ---------- 1. 舞台缩放 ---------- */
+  /* ---------- 1. 舞台缩放（铺满视口，无外框留白） ---------- */
   function fit() {
-    var k = Math.min(
-      (window.innerWidth  - MX * 2) / SW,
-      (window.innerHeight - MT - MB) / SH
-    );
+    var k = Math.min(window.innerWidth / SW, window.innerHeight / SH);
     k = Math.max(k, 0.1);
     K = k;
     stage.style.setProperty('--k', k.toFixed(4));
-    stage.style.setProperty('--ty', ((MT - MB) / 2) + 'px');
-
-    var left = Math.max(MX, Math.round((window.innerWidth - SW * k) / 2));
-    bar.style.left  = left + 'px';
-    hint.style.left = (bar.getBoundingClientRect().right + 32) + 'px';
+    stage.style.setProperty('--ty', '0px');
   }
   window.addEventListener('resize', fit);
   document.addEventListener('fullscreenchange', fit);
@@ -657,14 +610,21 @@ html,body{
   }
 
   /* ---------- 3. 翻页 ---------- */
-  function pad(n) { return n < 10 ? '0' + n : '' + n; }
-
   function go(n, dir) {
     n = Math.max(0, Math.min(slides.length - 1, n));
     if (n === cur) return;
     var d = dir != null ? dir : (n > cur ? 1 : -1);
 
     var from = slides[cur], to = slides[n];
+
+    // 放大动效：两页有同一个 data-morph 标记时，标题飞过去
+    var ma = from.querySelector('[data-morph]');
+    var mb = to.querySelector('[data-morph]');
+    var morph = ma && mb && ma.getAttribute('data-morph') === mb.getAttribute('data-morph');
+
+    // 必须在激活与清理之前测量：清理会重启动画带来位移，激活会带入入场动画
+    var ra = morph ? textBox(ma) : null;
+    var rb = morph ? textBox(mb) : null;
 
     // 清理上一次动效留下的 morph-live / morph-wait 状态
     liveNodes.forEach(function (nd) {
@@ -675,15 +635,7 @@ html,body{
     });
     liveNodes = [];
 
-    // 放大动效：两页有同一个 data-morph 标记时，标题飞过去
-    var ma = from.querySelector('[data-morph]');
-    var mb = to.querySelector('[data-morph]');
-    var morph = ma && mb && ma.getAttribute('data-morph') === mb.getAttribute('data-morph');
-
-    // 必须在激活之前测量：激活后入场动画会带来位移
-    var ra = morph ? textBox(ma) : null;
-    var rb = morph ? textBox(mb) : null;
-
+    from.classList.toggle('no-fade', !!morph);
     from.classList.remove('is-active');
 
     to.style.setProperty('--dx', (morph ? 0 : d * 14) + 'px');
@@ -693,49 +645,53 @@ html,body{
 
     if (morph) runMorph(ma, mb, ra, rb);
 
+    // 封面 → 第二页：闪光灯转场（快速闪白再褪回）
+    if (cur === 0 && n === 1 && d === 1) {
+      flashEl.classList.remove('on');
+      void flashEl.offsetWidth;
+      flashEl.classList.add('on');
+    }
+
     cur = n;
     render();
   }
 
   function render() {
-    curEl.textContent = pad(cur + 1);
-    totEl.textContent = pad(slides.length);
     prog.style.width = ((cur + 1) / slides.length * 100) + '%';
-    prevBtn.disabled = cur === 0;
-    nextBtn.disabled = cur === slides.length - 1;
-
-    curEl.classList.remove('roll');
-    void curEl.offsetWidth;
-    curEl.classList.add('roll');
+    backBtn.classList.toggle('hide', cur === 0);
   }
 
-  prevBtn.addEventListener('click', function () { go(cur - 1); });
-  nextBtn.addEventListener('click', function () { go(cur + 1); });
+  backBtn.addEventListener('click', function () { go(cur - 1); });
+  fsBtnEl.addEventListener('click', function () { toggleFs(); });
+
+  /* 点击页面翻页：点在按钮或链接上时不触发 */
+  stage.addEventListener('click', function (e) {
+    if (e.target.closest('a, button')) return;
+    go(cur + 1);
+  });
 
   /* ---------- 4. 全屏 ---------- */
-  fsBtn.addEventListener('click', function () {
+  function toggleFs() {
     if (document.fullscreenElement) {
       document.exitFullscreen();
     } else if (document.documentElement.requestFullscreen) {
       document.documentElement.requestFullscreen();
     }
-  });
+  }
 
   /* ---------- 5. 键盘 ---------- */
-  function hideHint() { hint.classList.add('hide'); }
-
   document.addEventListener('keydown', function (e) {
     var k = e.key;
     if (k === 'ArrowRight' || k === 'ArrowDown' || k === 'PageDown' || k === ' ') {
-      e.preventDefault(); hideHint(); go(cur + 1);
+      e.preventDefault(); go(cur + 1);
     } else if (k === 'ArrowLeft' || k === 'ArrowUp' || k === 'PageUp') {
-      e.preventDefault(); hideHint(); go(cur - 1);
+      e.preventDefault(); go(cur - 1);
     } else if (k === 'Home') {
-      e.preventDefault(); hideHint(); go(0, -1);
+      e.preventDefault(); go(0, -1);
     } else if (k === 'End') {
-      e.preventDefault(); hideHint(); go(slides.length - 1, 1);
+      e.preventDefault(); go(slides.length - 1, 1);
     } else if (k === 'f' || k === 'F') {
-      fsBtn.click();
+      toggleFs();
     } else if (k === 'Escape') {
       if (document.fullscreenElement) {
         document.exitFullscreen();
@@ -746,7 +702,6 @@ html,body{
   /* ---------- 6. 初始化 ---------- */
   slides[0].classList.add('is-active');
   render();
-  setTimeout(hideHint, 7000);
 })();
 </script>
 </body>
