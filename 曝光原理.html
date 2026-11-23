@@ -1,0 +1,936 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>普陀中学摄影社 · 曝光原理</title>
+<style>
+/* ============================================================
+   普陀中学摄影社 · 曝光原理课件
+   黑底白字高对比 / 细线 / 字距 / 相机标 / 暗色艺术背景
+   页面铺满视口、无外框；点击页面翻页，底部中央设「上一页」
+   舞台固定 1600×900 等比缩放，适配任意横屏
+   ============================================================ */
+
+:root{
+  --ink:#ffffff;
+  --paper:#0d0d0f;
+  --muted:#b5b5bc;
+  --faint:#8b8b91;
+  --line:#2c2c30;
+  --ease:cubic-bezier(.22,.61,.24,1);
+}
+
+*,*::before,*::after{ margin:0; padding:0; box-sizing:border-box; }
+
+html,body{
+  height:100%; overflow:hidden;
+  background:var(--paper);
+  color:var(--ink);
+  font-family:-apple-system, BlinkMacSystemFont, "SF Pro Display", "PingFang SC",
+              "Helvetica Neue", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  -webkit-font-smoothing:antialiased;
+  text-rendering:optimizeLegibility;
+}
+
+/* ---------- 背景层：暗色艺术背景 ---------- */
+/* 斜向光束（呼应「认识光」）+ 柔光晕 + 镜头光圈环 + 胶片颗粒
+   全部以黑色为主、透明度极低，不干扰白字阅读 */
+#bg{
+  position:fixed; inset:0; z-index:0; pointer-events:none;
+  background-color:var(--paper);
+  background-image:
+    /* 光束一：自左上斜入 */
+    linear-gradient(115deg, rgba(255,255,255,.07) 0%, rgba(255,255,255,.02) 16%, transparent 36%),
+    /* 光束二：自右下斜入，更淡 */
+    linear-gradient(295deg, rgba(255,255,255,.05) 0%, transparent 28%),
+    /* 两组柔光晕 */
+    radial-gradient(1000px 700px at 20% 14%, rgba(255,255,255,.05), transparent 62%),
+    radial-gradient(900px 650px at 86% 90%, rgba(255,255,255,.03), transparent 62%),
+    /* 右上角镜头光圈环 */
+    radial-gradient(circle at 85% 22%, transparent 0 190px, rgba(255,255,255,.045) 190px 191.5px,
+      transparent 191.5px 235px, rgba(255,255,255,.03) 235px 236.5px, transparent 236.5px),
+    /* 左下角小光圈环 */
+    radial-gradient(circle at 8% 80%, transparent 0 90px, rgba(255,255,255,.035) 90px 91.5px,
+      transparent 91.5px 120px, rgba(255,255,255,.025) 120px 121.5px, transparent 121.5px),
+    /* 胶片颗粒 */
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='0.045'/%3E%3C/svg%3E");
+}
+
+/* ---------- 闪光灯转场：封面 → 第二页 ---------- */
+#flash{
+  position:fixed; inset:0; z-index:100; pointer-events:none;
+  background:#fff; opacity:0;
+}
+#flash.on{ animation:flashPop 1s cubic-bezier(.22,.61,.24,1); }
+@keyframes flashPop{
+  0%{ opacity:0; }
+  12%{ opacity:1; }
+  100%{ opacity:0; }
+}
+
+/* ---------- 舞台：铺满整个视口 ---------- */
+#stage{
+  position:absolute; left:50%; top:calc(50% + var(--ty,0px));
+  width:1600px; height:900px;
+  transform-origin:center center;
+  transform:translate(-50%,-50%) scale(var(--k,1));
+  overflow:hidden;
+}
+
+/* ---------- 页面 ---------- */
+.slide{
+  position:absolute; inset:0;
+  opacity:0; z-index:1; pointer-events:none;
+  /* 离场淡出：与新页入场形成柔和交叉过渡 */
+  transition:opacity .8s var(--ease);
+}
+/* 放大动效翻页时来源页立即隐去，避免两个标题重影 */
+.slide.no-fade{ transition:none; }
+.slide.is-active{
+  opacity:1; z-index:2; pointer-events:auto;
+  animation:slIn 1.6s cubic-bezier(.16,1,.3,1) both;
+}
+/* 入场：轻微推近 + 柔焦变清晰，像镜头对焦 */
+@keyframes slIn{
+  from{ opacity:0; transform:translate3d(var(--dx,0px),0,0) scale(1.024); filter:blur(12px); }
+  to  { opacity:1; transform:none; filter:blur(0); }
+}
+/* 放大动效页：父级只做淡入，不做缩放位移 —— 否则会污染标题的落点计算 */
+.slide.is-active.morphing{ animation-name:slFade; }
+@keyframes slFade{
+  from{ opacity:0; }
+  to  { opacity:1; }
+}
+
+.slide.is-active .st{
+  animation:rise 1.5s cubic-bezier(.16,1,.3,1) both;
+  animation-delay:calc(260ms + min(var(--i,0) * 120ms, 680ms));
+  will-change:transform,opacity,filter;
+}
+/* 内容入场：上浮更明显 + 轻微放大 + 模糊变清晰 */
+@keyframes rise{
+  from{ opacity:0; transform:translate3d(0,26px,0) scale(.982); filter:blur(7px); }
+  to  { opacity:1; transform:none; filter:blur(0); }
+}
+
+/* 放大动效进行中：目标标题及其祖先不参与入场动画，避免位移叠加 */
+.slide.is-active .st.morph-live{ animation:none; opacity:1; }
+/* 标题飞行期间，同页其余内容先隐藏，标题落位后再依次出现 */
+.slide.is-active.morphing .st.morph-wait{ animation:none; opacity:0; }
+
+/* ---------- 顶部进度 ---------- */
+.prog{ position:absolute; top:0; left:0; right:0;
+       height:2px; z-index:20; pointer-events:none; }
+.prog i{
+  display:block; height:100%; width:0;
+  background:#fff; mix-blend-mode:difference;
+  transition:width .45s var(--ease);
+}
+
+/* ---------- 正文区 ---------- */
+.body{
+  position:absolute; inset:88px 92px 104px;
+  display:flex; flex-direction:column;
+}
+
+.hd{ display:block; }
+.hd h2{ font-size:70px; line-height:1.06; letter-spacing:-.03em; font-weight:600; }
+
+.main{ margin-top:44px; flex:1; display:flex; flex-direction:column; min-height:0; }
+
+.say{
+  font-size:44px; line-height:1.55; letter-spacing:-.015em;
+  color:var(--ink); font-weight:600; max-width:26em;
+}
+.say em{ font-style:normal; color:var(--faint); }
+
+/* ---------- 目录与步骤清单 ---------- */
+.toc{ margin-top:28px; flex:1; display:flex; flex-direction:column; }
+.toc .trow{
+  display:grid; grid-template-columns:82px 320px minmax(0,1fr);
+  gap:26px; align-items:center; flex:1 1 0;
+}
+.toc .n{ font-size:20px; letter-spacing:.18em; color:var(--faint); font-variant-numeric:tabular-nums; }
+.toc .t{ font-size:32px; font-weight:600; letter-spacing:-.015em; }
+.toc .d{ font-size:21px; line-height:1.75; color:var(--muted); }
+.toc .d b{ color:var(--ink); font-weight:600; }
+
+/* ---------- 三要素三栏卡片 ---------- */
+.c3{ display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:40px;
+     padding-top:24px; flex:1; }
+.c3 > div{ display:flex; flex-direction:column; }
+.c3 h3{ font-size:46px; font-weight:600; letter-spacing:-.02em; }
+.c3 .l{
+  margin-top:14px; padding-top:14px;
+  font-size:21px; line-height:1.7; color:var(--muted);
+}
+.c3 .l b{
+  display:block; color:var(--ink); font-weight:600;
+  font-size:18px; letter-spacing:.18em; margin-bottom:4px;
+}
+
+/* ---------- 注释 ---------- */
+.note{
+  margin-top:18px; display:flex; gap:14px; align-items:flex-start;
+  font-size:20px; line-height:1.75; color:var(--muted);
+}
+.note b{ color:var(--ink); font-weight:600; flex:0 0 auto; }
+.note span b{ flex:none; }
+
+/* ---------- 两栏数值 ---------- */
+.duo{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); }
+.duo > div{ padding:26px 40px 4px 0; }
+.duo > div + div{ padding-left:40px; }
+.duo .v{ font-size:58px; font-weight:600; letter-spacing:-.035em; line-height:1.06; }
+.duo .k{
+  font-size:21px; letter-spacing:.14em; color:var(--ink); margin-top:12px;
+  font-weight:600;
+}
+.duo .d{ font-size:21px; color:var(--muted); margin-top:9px; line-height:1.8; }
+
+/* ---------- 底部小注 ---------- */
+.cap{
+  margin-top:14px; height:30px; line-height:30px;
+  font-size:20px; color:var(--muted);
+}
+.cap b{ color:var(--ink); font-weight:600; }
+
+/* ============================================================
+   01 封面
+   ============================================================ */
+.cover2{
+  position:absolute; inset:0; padding:74px 92px 60px;
+  display:flex; flex-direction:column; align-items:center; justify-content:space-between;
+  text-align:center;
+}
+/* 相机标：块级盒必须用 margin:auto 居中（text-align 对块级盒无效） */
+.c2mark{ width:150px; margin:0 auto; color:var(--ink); }
+.c2mark svg{ width:100%; height:auto; display:block; }
+.c2name{ margin-top:26px; font-size:26px; font-weight:600; letter-spacing:.24em; }
+.c2title{
+  font-size:126px; line-height:1.02; letter-spacing:-.045em; font-weight:600;
+  margin-left:-.02em;
+}
+.c2bot{ display:flex; gap:64px; align-items:baseline; font-size:21px; color:var(--muted); }
+.c2bot b{ color:var(--ink); font-weight:600; letter-spacing:.02em; }
+
+/* ============================================================
+   04/06/08 三要素详情 —— 整页大字
+   ============================================================ */
+.detail{ display:flex; flex-direction:column; height:100%; }
+.detail h2{ font-size:140px; line-height:1.02; letter-spacing:-.045em; font-weight:600; }
+.dsub{
+  margin-top:32px; font-size:44px; line-height:1.5; letter-spacing:-.015em;
+  font-weight:600; color:var(--ink); max-width:24em;
+}
+.dfoot{ margin-top:auto; padding-top:30px; }
+/* 中段关键词条 */
+.dmid{ margin-top:38px; padding-top:20px; }
+.dmid-k{ font-size:21px; letter-spacing:.18em; color:var(--ink); font-weight:600; }
+.chips{ display:flex; flex-wrap:wrap; gap:12px; margin-top:18px; }
+.chips span{
+  font-size:23px; line-height:1; padding:13px 22px;
+  border:1px solid var(--line); border-radius:999px; color:var(--ink);
+}
+
+/* ---------- 公式与符号 ---------- */
+.formula{ margin-top:14px; font-size:32px; font-weight:500; line-height:1.5; }
+.sy{ margin-top:12px; font-size:20px; color:var(--muted); line-height:1.7; }
+
+/* ---------- 延伸表格 ---------- */
+.xtab{ width:100%; border-collapse:collapse; margin-top:18px; }
+.xtab td{ padding:16px 0; font-size:21px; color:var(--muted); }
+.xtab td:first-child{ color:var(--ink); font-weight:600; white-space:nowrap; padding-right:48px; }
+
+/* ---------- 底部「上一页」：融入版式的轻量按钮 ---------- */
+.backbtn{
+  position:absolute; bottom:14px; left:50%; transform:translateX(-50%);
+  z-index:30;
+  display:inline-flex; align-items:center; gap:10px;
+  padding:7px 18px;
+  font-size:16px; font-weight:500; letter-spacing:.18em;
+  color:var(--muted);
+  background:transparent;
+  border:1px solid var(--line); border-radius:999px;
+  -webkit-appearance:none; appearance:none; cursor:pointer;
+  transition:color .22s var(--ease), border-color .22s var(--ease),
+             opacity .3s var(--ease), transform .22s var(--ease);
+}
+.backbtn:hover{
+  color:var(--ink); border-color:var(--ink);
+  transform:translateX(-50%) translateY(-1px);
+}
+.backbtn .barr{ display:inline-block; font-size:15px; }
+.backbtn.hide{ opacity:0; pointer-events:none; }
+
+/* 封面底部「全屏」：与「上一页」同款，随封面内容排列 */
+.fsbtn{
+  display:inline-flex; align-items:center; gap:10px;
+  padding:7px 18px;
+  font-size:16px; font-weight:500; letter-spacing:.18em;
+  color:var(--muted);
+  background:transparent;
+  border:1px solid var(--line); border-radius:999px;
+  -webkit-appearance:none; appearance:none; cursor:pointer;
+  transition:color .22s var(--ease), border-color .22s var(--ease), transform .22s var(--ease);
+}
+.fsbtn:hover{ color:var(--ink); border-color:var(--ink); transform:translateY(-1px); }
+.fsbtn svg{ width:15px; height:15px; display:block; }
+
+@media (prefers-reduced-motion: reduce){
+  *{ animation:none !important; transition:none !important; }
+}
+</style>
+</head>
+<body>
+
+<!-- 相机标，fill/stroke 全部继承 currentColor -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <g id="camMark">
+    <g transform="translate(-92.14,-87.14) scale(1.4286)">
+      <path d="M 103.00 276.00 L 283.00 276.00 Q 288.00 276.00 292.10 273.14 L 306.90 262.86 Q 311.00 260.00 311.00 255.00 L 311.00 155.00 Q 311.00 150.00 306.00 150.00 L 242.50 150.00 Q 240.00 150.00 240.00 147.50 L 240.00 128.50 Q 240.00 126.00 237.50 126.00 L 196.50 126.00 Q 194.00 126.00 194.00 128.50 L 194.00 147.50 Q 194.00 150.00 191.50 150.00 L 126.00 150.00 Q 121.00 150.00 116.90 152.86 L 102.10 163.14 Q 98.00 166.00 98.00 171.00 L 98.00 271.00 Q 98.00 276.00 103.00 276.00 Z" stroke-width="5.2"/>
+      <circle cx="193.0" cy="221.0" r="39.0" stroke-width="4.4"/>
+      <circle cx="193.0" cy="221.0" r="30.0" stroke-width="2.2"/>
+      <circle cx="193.0" cy="221.0" r="11.5" fill="currentColor" stroke="none"/>
+      <rect x="243.0" y="179.0" width="26" height="11" rx="3" fill="currentColor" stroke="none"/>
+    </g>
+  </g>
+</defs></svg>
+
+<div id="bg" aria-hidden="true"></div>
+
+<div id="flash" aria-hidden="true"></div>
+
+<div id="stage">
+
+  <div class="prog"><i id="prog"></i></div>
+
+  <!-- ========== 01 封面 ========== -->
+  <section class="slide">
+    <div class="cover2">
+      <div class="st" style="--i:0">
+        <div class="c2mark">
+          <svg viewBox="40 85 320 230" fill="none" stroke="currentColor"
+               stroke-linecap="round" stroke-linejoin="round"><use href="#camMark"/></svg>
+        </div>
+        <div class="c2name">普陀中学摄影社</div>
+      </div>
+
+      <div class="c2title st" style="--i:1">曝光原理</div>
+
+      <div class="c2bot st" style="--i:2">
+        <span><b>曝光三要素 · 手动曝光 · 进阶原理</b></span>
+        <span>2026 年 11 月</span>
+        <button class="fsbtn" id="fsbtn" aria-label="全屏">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+               stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 9 V4 H9"/><path d="M20 9 V4 H15"/>
+            <path d="M4 15 V20 H9"/><path d="M20 15 V20 H15"/>
+          </svg>
+          全屏
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== 02 目录 ========== -->
+  <section class="slide">
+    <div class="body">
+      <div class="hd st" style="--i:0">
+        <h2>目录</h2>
+      </div>
+      <div class="main">
+        <p class="say st" style="--i:1">一份讲清楚「光从哪里来」的路线图。<em>知识 → 练习 → 原理。</em></p>
+        <div class="toc">
+          <div class="trow st" style="--i:2"><div class="n">01</div><div class="t">总览</div><div class="d">曝光由三件事共同决定</div></div>
+          <div class="trow st" style="--i:3"><div class="n">02</div><div class="t">光圈</div><div class="d">既管亮度，也管虚实</div></div>
+          <div class="trow st" style="--i:4"><div class="n">03</div><div class="t">快门</div><div class="d">控制进光时间，也决定动与静</div></div>
+          <div class="trow st" style="--i:5"><div class="n">04</div><div class="t">感光度</div><div class="d">亮度与画质之间的取舍</div></div>
+          <div class="trow st" style="--i:6"><div class="n">05</div><div class="t">M 档与曝光指示表</div><div class="d">把三要素交给自己</div></div>
+          <div class="trow st" style="--i:7"><div class="n">06</div><div class="t">进阶原理</div><div class="d">光圈、镜头结构与景深</div></div>
+          <div class="trow st" style="--i:8"><div class="n">07</div><div class="t">操作提示</div><div class="d">与后续课程衔接</div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== 03 总览：曝光由三件事共同决定 ========== -->
+  <section class="slide">
+    <div class="body">
+      <div class="hd st" style="--i:0">
+        <h2>总览</h2>
+      </div>
+      <div class="main">
+        <p class="say st" style="--i:1">一张照片的亮度，取决于感光元件最终获得多少光。<em>调整曝光，从来不是单纯把画面调亮。</em></p>
+        <div class="c3">
+          <div class="st" style="--i:2">
+            <h3 data-morph="aperture">光圈</h3>
+            <div class="l"><b>定义</b>镜头上的洞</div>
+            <div class="l"><b>作用</b>控制进光速度，影响亮度</div>
+            <div class="l"><b>参数</b>F</div>
+            <div class="l"><b>附加</b>影响景深（虚化）</div>
+          </div>
+          <div class="st" style="--i:3">
+            <h3 data-morph="shutter">快门</h3>
+            <div class="l"><b>定义</b>遮挡光线的门帘</div>
+            <div class="l"><b>作用</b>控制进光时间</div>
+            <div class="l"><b>参数</b>秒；小于 1 秒用分数，大于 1 秒用「数字+」</div>
+            <div class="l"><b>附加</b>安全快门与手持抖动、动态模糊</div>
+          </div>
+          <div class="st" style="--i:4">
+            <h3 data-morph="iso">感光度</h3>
+            <div class="l"><b>定义</b>感光元件对光线的敏感度（转化率）</div>
+            <div class="l"><b>作用</b>决定对光的转化效率</div>
+            <div class="l"><b>参数</b>ISO</div>
+            <div class="l"><b>附加</b>噪点和画质</div>
+          </div>
+        </div>
+        <div class="cap st" style="--i:5">练习四步：<b>找到参数位置 → 切换 M 档 → 找到调整方式 → 固定变量观察变化</b></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== 04 光圈（由总览页放大的标题而来） ========== -->
+  <section class="slide">
+    <div class="body">
+      <div class="detail">
+        <h2 class="st" style="--i:1" data-morph="aperture">光圈</h2>
+        <div class="dsub st" style="--i:2">既管亮度，也管虚实</div>
+        <div class="dmid st" style="--i:3">
+          <div class="dmid-k">本课关键词</div>
+          <div class="chips">
+            <span>镜头上的洞</span><span>进光速度</span><span>景深虚化</span><span>F 值反比</span>
+          </div>
+        </div>
+        <div class="dfoot">
+          <div class="duo">
+            <div class="st" style="--i:4">
+              <div class="v">亮度</div>
+              <div class="k">开口越大</div>
+              <div class="d">单位时间进入的光越多，画面越亮。</div>
+            </div>
+            <div class="st" style="--i:5">
+              <div class="v">虚实</div>
+              <div class="k">开口越大</div>
+              <div class="d">景深越浅，背景虚化越明显。</div>
+            </div>
+          </div>
+          <div class="cap st" style="--i:6">F 数值与实际开口<b>方向相反</b>：F 数值越小，光圈反而越大——这就是「反比」。</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== 05 光圈的练习 ========== -->
+  <section class="slide">
+    <div class="body">
+      <div class="hd st" style="--i:0">
+        <h2>光圈的练习</h2>
+      </div>
+      <div class="main">
+        <p class="say st" style="--i:1">四步路径。<em>先认识参数，再固定变量做对比实验。</em></p>
+        <div class="toc">
+          <div class="trow st" style="--i:2"><div class="n">01</div><div class="t">找到参数位置</div><div class="d">相机上表示光圈的参数位置</div></div>
+          <div class="trow st" style="--i:3"><div class="n">02</div><div class="t">切换到 M 档</div><div class="d">把曝光模式切到 M 档</div></div>
+          <div class="trow st" style="--i:4"><div class="n">03</div><div class="t">找到调整方式</div><div class="d">镜头上的光圈环，或相机上的拨轮</div></div>
+          <div class="trow st" style="--i:5"><div class="n">04</div><div class="t">调整并观察</div><div class="d"><b>4-1</b> 对比亮度变化　<b>4-2</b> 对比虚化强弱　<b>4-3</b> 拍一张大光圈虚化照片</div></div>
+        </div>
+        <div class="cap st" style="--i:6">「固定相机」是控制变量：取景、距离、光线不变，只让光圈变化。</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== 06 快门 ========== -->
+  <section class="slide">
+    <div class="body">
+      <div class="detail">
+        <h2 class="st" style="--i:1" data-morph="shutter">快门</h2>
+        <div class="dsub st" style="--i:2">控制进光时间，也决定动与静</div>
+        <div class="dmid st" style="--i:3">
+          <div class="dmid-k">本课关键词</div>
+          <div class="chips">
+            <span>门帘</span><span>秒与分数</span><span>安全快门</span><span>等效焦距</span><span>经验值</span>
+          </div>
+        </div>
+        <div class="dfoot">
+          <div class="duo">
+            <div class="st" style="--i:4">
+              <div class="v">时间</div>
+              <div class="k">门帘开多久</div>
+              <div class="d">单位是秒：小于 1 秒用分数，大于 1 秒用「数字+」。</div>
+            </div>
+            <div class="st" style="--i:5">
+              <div class="v">安全快门</div>
+              <div class="k">焦段的倒数</div>
+              <div class="d">高于它，大概率避免手持抖动；焦段越长，所需快门越快。</div>
+            </div>
+          </div>
+          <div class="note st" style="--i:6"><b>注</b><span>半画幅需按<b>等效焦距</b>换算；安全快门只是<b>参考经验值</b>，临界情况需结合实际拍摄条件。</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== 07 快门的练习 ========== -->
+  <section class="slide">
+    <div class="body">
+      <div class="hd st" style="--i:0">
+        <h2>快门的练习</h2>
+      </div>
+      <div class="main">
+        <p class="say st" style="--i:1">听、拍、试。<em>把抽象的「时间」变成体感。</em></p>
+        <div class="toc">
+          <div class="trow st" style="--i:2"><div class="n">01</div><div class="t">找到参数位置</div><div class="d">相机上表示快门的参数位置</div></div>
+          <div class="trow st" style="--i:3"><div class="n">02</div><div class="t">切换到 M 档</div><div class="d">把曝光模式切到 M 档</div></div>
+          <div class="trow st" style="--i:4"><div class="n">03</div><div class="t">找到调整方式</div><div class="d">一般用相机上的拨轮</div></div>
+          <div class="trow st" style="--i:5"><div class="n">04</div><div class="t">调整并观察</div><div class="d"><b>4-1</b> 感受快门声音　<b>4-2</b> 拍一张手持抖动的糊片　<b>4-3</b> 打开防抖体验安全极限</div></div>
+        </div>
+        <div class="cap st" style="--i:6">把「时间」变成三种可感知的经验：声音、模糊、安全底线的移动。</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== 08 感光度 ========== -->
+  <section class="slide">
+    <div class="body">
+      <div class="detail">
+        <h2 class="st" style="--i:1" data-morph="iso">感光度</h2>
+        <div class="dsub st" style="--i:2">亮度与画质之间的取舍</div>
+        <div class="dmid st" style="--i:3">
+          <div class="dmid-k">本课关键词</div>
+          <div class="chips">
+            <span>ISO</span><span>转化率</span><span>噪点</span><span>画质</span>
+          </div>
+        </div>
+        <div class="dfoot">
+          <div class="duo">
+            <div class="st" style="--i:4">
+              <div class="v">ISO</div>
+              <div class="k">对光的转化强度</div>
+              <div class="d">不改变进来的光，只改变相机对光的转化强度；暗光下提高 ISO 直接变亮。</div>
+            </div>
+            <div class="st" style="--i:5">
+              <div class="v">代价</div>
+              <div class="k">噪点与画质</div>
+              <div class="d">感光度越高噪点越多、画质越差；练习时要放大对比噪点。</div>
+            </div>
+          </div>
+          <div class="note st" style="--i:6"><b>注</b><span>噪点的成因不止感光度一个：曝光不足后强行提亮、sensor 尺寸、机身处理同样影响噪点。</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== 09 感光度的练习 ========== -->
+  <section class="slide">
+    <div class="body">
+      <div class="hd st" style="--i:0">
+        <h2>感光度的练习</h2>
+      </div>
+      <div class="main">
+        <p class="say st" style="--i:1">找到参数，放大对比。<em>噪点必须放大看才明显。</em></p>
+        <div class="toc">
+          <div class="trow st" style="--i:2"><div class="n">01</div><div class="t">找到参数位置</div><div class="d">相机上表示感光度的参数位置</div></div>
+          <div class="trow st" style="--i:3"><div class="n">02</div><div class="t">切换到 M 档</div><div class="d">把曝光模式切到 M 档</div></div>
+          <div class="trow st" style="--i:4"><div class="n">03</div><div class="t">找到调整方式</div><div class="d">相机上调整感光度的操作方式</div></div>
+          <div class="trow st" style="--i:5"><div class="n">04</div><div class="t">调整并观察</div><div class="d">调整不同感光度拍摄照片，<b>放大对比噪点多少</b></div></div>
+        </div>
+        <div class="cap st" style="--i:6"><b>注</b>自动感光度属于曝光模式的范畴，此处不作展开。</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== 10 M 档与曝光指示表 ========== -->
+  <section class="slide">
+    <div class="body">
+      <div class="hd st" style="--i:0">
+        <h2>M 档与曝光指示表</h2>
+      </div>
+      <div class="main">
+        <p class="say st" style="--i:1">把三要素交给自己。<em>怎么知道曝光合不合适？</em></p>
+        <div class="duo st" style="--i:2">
+          <div>
+            <div class="v">M 档</div>
+            <div class="k">手动档</div>
+            <div class="d">光圈、快门、感光度全部手动调整，没有人替你补参数。</div>
+          </div>
+          <div>
+            <div class="v">曝光表</div>
+            <div class="k">电子秤</div>
+            <div class="d">随参数实时变化，像电子秤；指针在中间 ≈ 曝光合适。</div>
+          </div>
+        </div>
+        <div class="note st" style="--i:3"><b>注</b><span>有的相机不显示完整曝光表，改用「EV+数字」：EV-2 欠曝两档，EV+1 过曝一档。</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== 11 M 档的练习 ========== -->
+  <section class="slide">
+    <div class="body">
+      <div class="hd st" style="--i:0">
+        <h2>M 档的练习</h2>
+      </div>
+      <div class="main">
+        <p class="say st" style="--i:1">固定取景范围。<em>让测光结果只随参数变化。</em></p>
+        <div class="toc">
+          <div class="trow st" style="--i:2"><div class="n">01</div><div class="t">找到切换方式</div><div class="d">找到 M 档的切换方式</div></div>
+          <div class="trow st" style="--i:3"><div class="n">02</div><div class="t">找到档位提示</div><div class="d">屏幕上会提示当前使用的档位，找到它的位置</div></div>
+          <div class="trow st" style="--i:4"><div class="n">03</div><div class="t">观察曝光表</div><div class="d">固定相机的取景范围，调节参数，观察曝光表的变化</div></div>
+          <div class="trow st" style="--i:5"><div class="n">04</div><div class="t">用 M 档拍摄</div><div class="d">尝试用 M 档拍摄一段时间，这有助于理解后面的其他档位</div></div>
+        </div>
+        <div class="cap st" style="--i:6">先手动把三要素逐一走通，再回头理解其他档位替你自动做了什么。</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== 12 进阶原理：镜头结构 ========== -->
+  <section class="slide">
+    <div class="body">
+      <div class="hd st" style="--i:0">
+        <h2>进阶原理 · 镜头结构</h2>
+      </div>
+      <div class="main">
+        <p class="say st" style="--i:1">光圈、镜头结构与景深。<em>结构先于参数。</em></p>
+        <div class="duo">
+          <div class="st" style="--i:2">
+            <div class="v">结构</div>
+            <div class="k">光学与机械限定</div>
+            <div class="d">一支镜头能做到多大的开口，首先由光学与机械结构限定——最大光圈和最小光圈，不是参数可以随意设定的。</div>
+          </div>
+          <div class="st" style="--i:3">
+            <div class="v">变焦</div>
+            <div class="k">恒定与非恒定</div>
+            <div class="d">非恒定光圈镜头：不同焦段下最大光圈不同；恒定光圈镜头：不同焦段下最大光圈相同。</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== 13 进阶原理：F 值与档位 ========== -->
+  <section class="slide">
+    <div class="body">
+      <div class="hd st" style="--i:0">
+        <h2>进阶原理 · F 值与档位</h2>
+      </div>
+      <div class="main">
+        <p class="say st" style="--i:1">为什么 F 值越小，光圈反而越大。<em>F 值是比值，不是绝对孔径。</em></p>
+        <div class="duo">
+          <div class="st" style="--i:2">
+            <div class="v">F 值</div>
+            <div class="k">焦距 ÷ 通光口径</div>
+            <div class="d">50mm 的焦距 / F16 = 3.125mm。F 值是比值而非绝对孔径，也呼应光圈的「反比」规律。</div>
+          </div>
+          <div class="st" style="--i:3">
+            <div class="v">档位</div>
+            <div class="k">√2 递进</div>
+            <div class="d">一档即光圈数值增大根号二倍，进光量增大二倍；目前相机普遍转动一次为 1/3 档。</div>
+          </div>
+        </div>
+        <div class="cap st" style="--i:4">通光面积与孔径的平方成正比——所以「转一格」不等于「进光翻倍」。</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== 14 进阶原理：光斑与画质 ========== -->
+  <section class="slide">
+    <div class="body">
+      <div class="hd st" style="--i:0">
+        <h2>进阶原理 · 光斑与画质</h2>
+      </div>
+      <div class="main">
+        <p class="say st" style="--i:1">虚化与锐度的取舍。<em>最大光圈，不是最佳光圈。</em></p>
+        <div class="duo">
+          <div class="st" style="--i:2">
+            <div class="v">光斑</div>
+            <div class="k">形状</div>
+            <div class="d">圆、星芒、特殊形状。</div>
+          </div>
+          <div class="st" style="--i:3">
+            <div class="v">画质</div>
+            <div class="k">最佳光圈</div>
+            <div class="d">通常镜头中段光圈画质最佳——最大光圈能带来虚化，但锐度与边缘画质往往在中段更好。</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== 15 进阶原理：景深公式 ========== -->
+  <section class="slide">
+    <div class="body">
+      <div class="hd st" style="--i:0">
+        <h2>进阶原理 · 景深公式</h2>
+      </div>
+      <div class="main">
+        <p class="say st" style="--i:1">两条公式，看懂一个「为什么」。<em>景深由光圈、焦距、对焦距离共同决定。</em></p>
+        <div class="dmid st" style="--i:2">
+          <div class="dmid-k">景深公式</div>
+          <div class="formula">ΔL1 = FδL² / (f² + FδL)<br>ΔL2 = FδL² / (f² − FδL)</div>
+          <div class="sy">符号说明：F 为光圈 F 值，f 为镜头焦距，L 为对焦距离，δ 为容许弥散圆直径（全画幅 0.029mm）。</div>
+        </div>
+        <div class="cap st" style="--i:3">分子相同、分母只差一个正负号——后景深通常大于前景深：焦点之后的清晰范围更宽。</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== 16 操作提示 ========== -->
+  <section class="slide">
+    <div class="body">
+      <div class="hd st" style="--i:0">
+        <h2>操作提示</h2>
+      </div>
+      <div class="main">
+        <p class="say st" style="--i:1">遇到操作疑惑，<em>说明书是最可靠的依据。</em></p>
+        <div class="duo">
+          <div class="st" style="--i:2">
+            <div class="v">说明书</div>
+            <div class="k">电子版</div>
+            <div class="d">各品牌官网均可下载对应型号的电子说明书，强烈建议查阅。</div>
+          </div>
+          <div class="st" style="--i:3">
+            <div class="v">为什么</div>
+            <div class="k">布局差异大</div>
+            <div class="d">不同品牌的拨轮、拨盘、按键布局差异很大，落实到自己机身时以说明书为准。</div>
+          </div>
+        </div>
+        <div class="note st" style="--i:4"><b>注</b><span>这条建议与三要素练习中反复出现的「找到参数位置」「找到调整操作方式」直接对应。</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== 17 小结与后续课程衔接 ========== -->
+  <section class="slide">
+    <div class="body">
+      <div class="hd st" style="--i:0">
+        <h2>小结与后续课程衔接</h2>
+      </div>
+      <div class="main">
+        <p class="say st" style="--i:1">光圈管「口多大」、快门管「开多久」、感光度管「转化多强」。<em>三者共同决定曝光。</em></p>
+        <div class="dmid st" style="--i:2">
+          <div class="dmid-k">后续课程衔接</div>
+          <table class="xtab">
+            <tr><td>安全快门需考虑等效焦距</td><td>快门</td><td>焦距与等效焦距的换算</td></tr>
+            <tr><td>自动感光度</td><td>感光度</td><td>曝光模式与测光模式</td></tr>
+          </table>
+        </div>
+        <div class="cap st" style="--i:3">每个要素都按四步建立手感：找到参数 → 切到 M 档 → 找到调整方式 → 固定变量观察变化。</div>
+      </div>
+    </div>
+  </section>
+
+  <button class="backbtn" id="backbtn" aria-label="上一页"><span class="barr">←</span>上一页</button>
+
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var stage   = document.getElementById('stage');
+  var flashEl = document.getElementById('flash');
+  var slides  = Array.prototype.slice.call(document.querySelectorAll('.slide'));
+  var prog    = document.getElementById('prog');
+  var backBtn = document.getElementById('backbtn');
+  var fsBtnEl = document.getElementById('fsbtn');
+
+  var SW = 1600, SH = 900;
+  var K = 1, cur = 0;
+
+  /* ---------- 1. 舞台缩放（铺满视口，无外框留白） ---------- */
+  function fit() {
+    var k = Math.min(window.innerWidth / SW, window.innerHeight / SH);
+    k = Math.max(k, 0.1);
+    K = k;
+    stage.style.setProperty('--k', k.toFixed(4));
+    stage.style.setProperty('--ty', '0px');
+  }
+  window.addEventListener('resize', fit);
+  document.addEventListener('fullscreenchange', fit);
+  fit();
+
+  /* ---------- 2. 放大动效（FLIP：真元素自身缩放位移，不做克隆） ----------
+     做法：目标大标题先缩放 + 位移到来源小标题所在位置，再动画回原位。
+     全程只有这一个元素参与，不会出现新旧两个标题的重影。          */
+  function stageBox(el) {
+    var r = el.getBoundingClientRect();
+    var s = stage.getBoundingClientRect();
+    return {
+      x: (r.left - s.left) / K,
+      y: (r.top  - s.top)  / K,
+      w: r.width / K,
+      h: r.height / K
+    };
+  }
+
+  // 文字的真实边界（块级元素的盒模型会被拉满整列，量盒子会失真）
+  function textBox(el) {
+    var rng = document.createRange();
+    rng.selectNodeContents(el);
+    var r = rng.getBoundingClientRect();
+    var s = stage.getBoundingClientRect();
+    return {
+      x: (r.left - s.left) / K,
+      y: (r.top  - s.top)  / K,
+      w: r.width / K,
+      h: r.height / K
+    };
+  }
+
+  var liveNodes = [];   // 处于 morph-live 状态的节点（下次翻页时统一清理）
+
+  function runMorph(srcEl, dstEl, ra, rb) {
+    if (!ra || !rb || !ra.w || !rb.w) return;
+
+    var eb = stageBox(dstEl);  // 目标元素自身的盒子
+    var ox = rb.x - eb.x;      // 文字在元素盒子内的偏移
+    var oy = rb.y - eb.y;
+
+    var k  = ra.w / rb.w;      // 起始缩放：大字缩到和小字一样大
+    var dx = ra.x - rb.x;      // 起点位移：文字左上角对齐来源
+    var dy = ra.y - rb.y;
+
+    // 目标标题：不参与入场动画，避免额外的位移叠加
+    var node = dstEl;
+    while (node && node !== stage) {
+      if (node.classList && node.classList.contains('st')) {
+        node.classList.add('morph-live');
+        liveNodes.push(node);
+      }
+      node = node.parentNode;
+    }
+
+    // 同页其余内容：先藏起来，标题落位后再依次出现
+    var waits = [];
+    Array.prototype.forEach.call(dstEl.closest('.slide').querySelectorAll('.st'), function (e) {
+      if (e === dstEl || e.classList.contains('morph-live')) return;
+      e.classList.add('morph-wait');
+      waits.push(e);
+      liveNodes.push(e);
+    });
+
+    dstEl.style.transformOrigin = ox + 'px ' + oy + 'px';
+
+    var anim = dstEl.animate([
+      { transform: 'translate(' + dx + 'px,' + dy + 'px) scale(' + k + ')' },
+      { transform: 'translate(0px,0px) scale(1)' }
+    ], { duration: 700, easing: 'cubic-bezier(.22,.61,.24,1)', fill: 'both' });
+
+    anim.onfinish = function () {
+      dstEl.style.transformOrigin = '';
+      anim.cancel();
+      // morph-live / morph-wait 不在这里摘除——
+      // 一摘除 rise 动画会重新触发，标题会闪一下消失再淡入。
+      // 它们由下一次翻页时的统一清理负责。
+    };
+
+    // 标题落位后，其余内容按原节奏依次浮现
+    waits.forEach(function (e, idx) {
+      setTimeout(function () {
+        e.classList.remove('morph-wait');
+        e.style.animationDelay = 'calc(60ms + min(' + (idx + 1) * 30 + 'ms, 180ms))';
+        e.style.animationDuration = '.42s';
+        void e.offsetWidth;   // 强制重排，让 rise 动画重新开始
+      }, 380 + Math.min(idx * 30, 180));
+    });
+  }
+
+  /* ---------- 3. 翻页 ---------- */
+  function go(n, dir) {
+    n = Math.max(0, Math.min(slides.length - 1, n));
+    if (n === cur) return;
+    var d = dir != null ? dir : (n > cur ? 1 : -1);
+
+    var from = slides[cur], to = slides[n];
+
+    // 放大动效：两页有同一个 data-morph 标记时，标题飞过去
+    var ma = from.querySelector('[data-morph]');
+    var mb = to.querySelector('[data-morph]');
+    var morph = ma && mb && ma.getAttribute('data-morph') === mb.getAttribute('data-morph');
+
+    // 必须在激活与清理之前测量：清理会重启动画带来位移，激活会带入入场动画
+    var ra = morph ? textBox(ma) : null;
+    var rb = morph ? textBox(mb) : null;
+
+    // 清理上一次动效留下的 morph-live / morph-wait 状态
+    liveNodes.forEach(function (nd) {
+      nd.classList.remove('morph-live');
+      nd.classList.remove('morph-wait');
+      nd.style.animationDelay = '';
+      nd.style.animationDuration = '';
+    });
+    liveNodes = [];
+
+    from.classList.toggle('no-fade', !!morph);
+    from.classList.remove('is-active');
+
+    to.style.setProperty('--dx', (morph ? 0 : d * 14) + 'px');
+    void to.offsetWidth;
+    to.classList.add('is-active');
+    to.classList.toggle('morphing', !!morph);
+
+    if (morph) runMorph(ma, mb, ra, rb);
+
+    // 封面 → 第二页：闪光灯转场（快速闪白再褪回）
+    if (cur === 0 && n === 1 && d === 1) {
+      flashEl.classList.remove('on');
+      void flashEl.offsetWidth;
+      flashEl.classList.add('on');
+    }
+
+    cur = n;
+    render();
+  }
+
+  function render() {
+    prog.style.width = ((cur + 1) / slides.length * 100) + '%';
+    backBtn.classList.toggle('hide', cur === 0);
+  }
+
+  backBtn.addEventListener('click', function () { go(cur - 1); });
+  fsBtnEl.addEventListener('click', function () { toggleFs(); });
+
+  /* 点击页面翻页：点在按钮或链接上时不触发 */
+  stage.addEventListener('click', function (e) {
+    if (e.target.closest('a, button')) return;
+    go(cur + 1);
+  });
+
+  /* ---------- 4. 全屏 ---------- */
+  function toggleFs() {
+    if (document.fullscreenElement) {
+      document.exitFullscreen();
+    } else if (document.documentElement.requestFullscreen) {
+      document.documentElement.requestFullscreen();
+    }
+  }
+
+  /* ---------- 5. 键盘 ---------- */
+  document.addEventListener('keydown', function (e) {
+    var k = e.key;
+    if (k === 'ArrowRight' || k === 'ArrowDown' || k === 'PageDown' || k === ' ') {
+      e.preventDefault(); go(cur + 1);
+    } else if (k === 'ArrowLeft' || k === 'ArrowUp' || k === 'PageUp') {
+      e.preventDefault(); go(cur - 1);
+    } else if (k === 'Home') {
+      e.preventDefault(); go(0, -1);
+    } else if (k === 'End') {
+      e.preventDefault(); go(slides.length - 1, 1);
+    } else if (k === 'f' || k === 'F') {
+      toggleFs();
+    } else if (k === 'Escape') {
+      if (document.fullscreenElement) {
+        document.exitFullscreen();
+      }
+    }
+  });
+
+  /* ---------- 6. 初始化 ---------- */
+  slides[0].classList.add('is-active');
+  render();
+})();
+</script>
+</body>
+</html>
